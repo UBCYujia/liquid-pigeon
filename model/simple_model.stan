@@ -13,17 +13,16 @@ parameters {
 transformed parameters {
   vector[n] mu;                   
 
-  vector[n] total_sum;  // To hold sums for each clone profile row
+  vector[n] total_sum;  // hold sums for each clone profile row
 
   for (i in 1:n) {
-    // Convert row to vector and perform element-wise multiplication, then sum
+    // convert row to vector and perform element-wise multiplication, then sum
     mu[i] = log(sum(to_vector(clone_cn_profiles[i]) .* rho));
     
-    // Calculate total sums for mean calculation outside the loop
     total_sum[i] = sum(to_vector(clone_cn_profiles[i]) .* rho);
   }
 
-  // Compute the mean of the total sums and adjust mu[i]
+  // compute the mean of the total sums ,then update mu
   real mean_total_sum = mean(total_sum);
   for (i in 1:n) {
     mu[i] = mu[i] - log(mean_total_sum);
