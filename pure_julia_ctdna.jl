@@ -52,9 +52,6 @@ end
 function Pigeons.initialization(log_potential::CtDNALogPotential, rng::AbstractRNG, ::Int)
     alpha = 1.0  
     rho = rand(rng, Dirichlet(log_potential.num_clones, alpha))
-    # rho /= sum(rho)
-    rho[1] = 1 - sum(rho) + rho[1]
-
 
     @assert abs(sum(rho) - 1) < 1e-5 "density not 1!"
 
@@ -64,8 +61,6 @@ end
 function Pigeons.sample_iid!(log_potential::CtDNALogPotential, replica, shared)
     rng = replica.rng
     new_state = rand(rng, Dirichlet(log_potential.num_clones, 1.0))
-    # new_state /= sum(new_state)
-    new_state[1] = 1 - sum(new_state) + new_state[1]
 
     @assert abs(sum(new_state) - 1) < 1e-5  "density not 1!"
 
