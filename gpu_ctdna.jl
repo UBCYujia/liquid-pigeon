@@ -7,7 +7,7 @@ using CSV
 using DataFrames
 using InferenceReport
 
-CUDA.allowscalar(false)  # Ensure no scalar operations on GPU arrays
+CUDA.allowscalar(false)  
 
 struct CtDNALogPotential
     ctdna::CuArray{Float64}
@@ -18,35 +18,37 @@ struct CtDNALogPotential
 end
 
 function (log_potential::CtDNALogPotential)(params)
-    rho = CuArray(params)  # Parameters must be on GPU
+    rho = CuArray(params)  
     if any(rho .< 0 .|| rho .> 1) || abs(sum(rho) - 1) > 1e-5
-        return -Inf  # Ensure rho is valid
+        return -Inf
     end
 
     total_sum = log_potential.clone_cn_profiles * rho
-    mean_total_sum = mean(total_sum)
+    mean_total_sum = mean(CUDA.reduce(+, total_sum) / length(total_sum))
 
     mu = log.(total_sum) .- log(mean_total_sum)
     
     degrees_of_freedom = 2
     dist = TDist(degrees_of_freedom)
 
-    # Vectorized computation of log likelihood
     dists = LocationScale.(mu, log_potential.scale, dist)
     log_likelihoods = logpdf.(dists, log_potential.ctdna)
-    log_likelihood = sum(log_likelihoods)
+    log_likelihood = CUDA.reduce(+, log_likelihoods)
     
     return log_likelihood
 end
 
+
 function Pigeons.initialization(log_potential::CtDNALogPotential, rng::AbstractRNG, ::Int)
     alpha = 1.0  
-    rho = CuArray(rand(rng, Dirichlet(log_potential.num_clones, alpha)))
+    rho = rand(rng, Dirichlet(log_potential.num_clones, alpha))
+    rho_gpu = CuArray(rho)
 
-    @assert abs(sum(rho) - 1) < 1e-5 "density not 1!"
+    @assert abs(sum(rho_gpu) - 1) < 1e-5 "density not 1!"
 
-    return rho
+    return rho_gpu
 end
+
 
 function Pigeons.sample_iid!(log_potential::CtDNALogPotential, replica, shared)
     rng = replica.rng
@@ -70,7 +72,6 @@ function default_reference(log_potential::CtDNALogPotential)
 end
 
 function main()
-    # Load data and convert necessary parts to GPU arrays
     ctdna_path = "data/ctdna.tsv"
     clones_path = "data/2-clones-simple.tsv"
     ctdna_data, clones_data = load_data(ctdna_path, clones_path)
@@ -84,11 +85,11 @@ function main()
     log_potential = CtDNALogPotential(ctdna, clone_cn_profiles, num_clones, n, scale)
     reference_potential = default_reference(log_potential)
 
-    # Run simulation
     pt = pigeons(
         target = log_potential,
         reference = reference_potential,
-        record = [traces; record_default()]
+        record = [traces; record_default()],
+        n_chains=1
     )
     report(pt)
 
