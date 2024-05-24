@@ -6,8 +6,22 @@ using Distributions
 using CSV
 using DataFrames
 using InferenceReport
+using SpecialFunctions
 
-CUDA.allowscalar(false)  
+CUDA.allowscalar(true)  
+
+function log_t_pdf(x, v)
+    # Constants for the t-distribution
+    log_gamma_half_v_plus_1 = lgamma((v + 1) / 2)
+    log_gamma_half_v = lgamma(v / 2)
+    log_v_pi = log(v * π) / 2
+
+    # Calculation of the logarithm of the PDF
+    # Correcting the subtraction and other operations for broadcasting
+    result = log_gamma_half_v_plus_1 .- log_gamma_half_v .- log_v_pi .- ((v + 1) / 2) .* log.(1 .+ (x .^ 2) ./ v)
+    return result
+end
+
 
 struct CtDNALogPotential
     ctdna::CuArray{Float64}
@@ -16,6 +30,7 @@ struct CtDNALogPotential
     n::Int
     scale::Float64
 end
+
 
 function (log_potential::CtDNALogPotential)(params)
     rho = CuArray(params)  
@@ -29,10 +44,8 @@ function (log_potential::CtDNALogPotential)(params)
     mu = log.(total_sum) .- log(mean_total_sum)
     
     degrees_of_freedom = 2
-    dist = TDist(degrees_of_freedom)
-
-    dists = LocationScale.(mu, log_potential.scale, dist)
-    log_likelihoods = logpdf.(dists, log_potential.ctdna)
+    scaled_mu = mu * log_potential.scale
+    log_likelihoods = log_t_pdf((log_potential.ctdna .- scaled_mu) / log_potential.scale, degrees_of_freedom)
     log_likelihood = CUDA.reduce(+, log_likelihoods)
     
     return log_likelihood
