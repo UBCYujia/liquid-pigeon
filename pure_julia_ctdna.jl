@@ -39,9 +39,7 @@ function (log_potential::CtDNALogPotential)(params)
     dist = TDist(degrees_of_freedom)
 
     for i in 1:log_potential.n
-        # Calculate shifted and scaled t-distribution for each data point
         dist_i = LocationScale(mu[i], log_potential.scale, dist)
-        # Accumulate log likelihood
         log_likelihood += logpdf(dist_i, log_potential.ctdna[i])
     end
     
