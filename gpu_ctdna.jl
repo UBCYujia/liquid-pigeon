@@ -11,13 +11,9 @@ using SpecialFunctions
 CUDA.allowscalar(true)  
 
 function log_t_pdf(x, v)
-    # Constants for the t-distribution
     log_gamma_half_v_plus_1 = lgamma((v + 1) / 2)
     log_gamma_half_v = lgamma(v / 2)
     log_v_pi = log(v * π) / 2
-
-    # Calculation of the logarithm of the PDF
-    # Correcting the subtraction and other operations for broadcasting
     result = log_gamma_half_v_plus_1 .- log_gamma_half_v .- log_v_pi .- ((v + 1) / 2) .* log.(1 .+ (x .^ 2) ./ v)
     return result
 end
