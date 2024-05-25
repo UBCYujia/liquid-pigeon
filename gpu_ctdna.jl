@@ -100,8 +100,7 @@ function main()
     pt = pigeons(
         target = log_potential,
         reference = reference_potential,
-        record = [traces; record_default()],
-        n_chains=1
+        record = [traces; record_default()]
     )
     report(pt)
 
