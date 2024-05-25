@@ -8,13 +8,18 @@ using DataFrames
 using InferenceReport
 using SpecialFunctions
 
-CUDA.allowscalar(true)  
+CUDA.allowscalar(false)  
 
 function log_t_pdf(x, v)
-    log_gamma_half_v_plus_1 = lgamma((v + 1) / 2)
-    log_gamma_half_v = lgamma(v / 2)
-    log_v_pi = log(v * π) / 2
-    result = log_gamma_half_v_plus_1 .- log_gamma_half_v .- log_v_pi .- ((v + 1) / 2) .* log.(1 .+ (x .^ 2) ./ v)
+    #if we care about gamma part, use the commented version
+    # log_gamma_half_v_plus_1 = lgamma((v + 1) / 2)
+    # log_gamma_half_v = lgamma(v / 2)
+    # log_v_pi = log(v * π) / 2
+    # result = log_gamma_half_v_plus_1 .- log_gamma_half_v .- log_v_pi .- ((v + 1) / 2) .* log.(1 .+ (x .^ 2) ./ v)
+
+    result = - ((v + 1) / 2) .* log.(1 .+ (x .^ 2) ./ v)
+
+
     return result
 end
 
@@ -51,17 +56,15 @@ end
 function Pigeons.initialization(log_potential::CtDNALogPotential, rng::AbstractRNG, ::Int)
     alpha = 1.0  
     rho = rand(rng, Dirichlet(log_potential.num_clones, alpha))
-    rho_gpu = CuArray(rho)
+    @assert abs(sum(rho) - 1) < 1e-5 "density not 1!"
 
-    @assert abs(sum(rho_gpu) - 1) < 1e-5 "density not 1!"
-
-    return rho_gpu
+    return rho
 end
 
 
 function Pigeons.sample_iid!(log_potential::CtDNALogPotential, replica, shared)
     rng = replica.rng
-    new_state = CuArray(rand(rng, Dirichlet(log_potential.num_clones, 1.0)))
+    new_state = rand(rng, Dirichlet(log_potential.num_clones, 1.0))
 
     @assert abs(sum(new_state) - 1) < 1e-5 "density not 1!"
 
