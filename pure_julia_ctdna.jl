@@ -67,7 +67,7 @@ end
 
 
 function load_data(ctdna_path, clones_path)
-    ctdna_data = CSV.read(ctdna_path, DataFrame, delim='\t', header=false)
+    ctdna_data = CSV.read(ctdna_path, DataFrame, delim='\t', header=false,types=[Float64])
     clones_data = CSV.read(clones_path, DataFrame, delim='\t')
     return ctdna_data, clones_data
 end
@@ -77,28 +77,60 @@ function default_reference(log_potential::CtDNALogPotential)
     return CtDNALogPotential(neutral_ctdna, log_potential.clone_cn_profiles, log_potential.num_clones, log_potential.n, log_potential.scale)
 end
 
-function main()
-    ctdna_path = "data/ctdna.tsv"
-    clones_path = "data/2-clones-simple.tsv"
-    ctdna_data, clones_data = load_data(ctdna_path, clones_path)
+# function main()
+#     ctdna_path = "data/ctdna-5000.tsv"
+#     clones_path = "data/2-clones-5000.tsv"
+#     ctdna_data, clones_data = load_data(ctdna_path, clones_path)
 
-    n = size(clones_data, 1)
-    num_clones = size(clones_data, 2) - 1
-    clone_cn_profiles = Matrix(clones_data[:, 2:end])
-    ctdna = Vector{Float64}(ctdna_data[:, 1])
-    scale = 1.0  #simplified scale
+#     n = size(clones_data, 1)
+#     num_clones = size(clones_data, 2) - 1
+#     clone_cn_profiles = Matrix(clones_data[:, 2:end])
+#     ctdna = Vector{Float64}(ctdna_data[:, 1])
+#     scale = 1.0  #simplified scale
 
-    log_potential = CtDNALogPotential(ctdna, clone_cn_profiles, num_clones, n, scale)
-    reference_potential = default_reference(log_potential)
+#     log_potential = CtDNALogPotential(ctdna, clone_cn_profiles, num_clones, n, scale)
+#     reference_potential = default_reference(log_potential)
 
-    pt = pigeons(
-        target = log_potential,
-        reference = reference_potential,
-        record = [traces; record_default()]
-    )
-    report(pt)
+#     pt = pigeons(
+#         target = log_potential,
+#         reference = reference_potential,
+#         record = [traces; record_default()]
+#     )
+#     # report(pt)
 
-    println("Model run complete.")
+#     println("Model run complete.")
+# end
+
+# @time main()
+function main(ctdna_paths, clones_paths)
+    for (ctdna_path, clones_path) in zip(ctdna_paths, clones_paths)
+        println("processing: $ctdna_path and $clones_path")
+        ctdna_data, clones_data = load_data(ctdna_path, clones_path)
+
+        n = size(clones_data, 1)
+        num_clones = size(clones_data, 2) - 1
+        clone_cn_profiles = Matrix(clones_data[:, 2:end])
+        ctdna = Vector{Float64}(ctdna_data[:, 1])
+        scale = 1.0  
+
+        log_potential = CtDNALogPotential(ctdna, clone_cn_profiles, num_clones, n, scale)
+        reference_potential = default_reference(log_potential)
+
+        time_taken = @elapsed begin
+            pt = pigeons(
+                target = log_potential,
+                reference = reference_potential,
+                record = [traces; record_default()]
+            )
+        report(pt)    
+        end
+
+        println("run complete for $ctdna_path. time taken: $time_taken seconds.")
+    end
 end
 
-main()
+# ctdna_paths = ["data/ctdna.tsv","data/ctdna-500.tsv", "data/ctdna-1000.tsv","data/ctdna-5000.tsv"]
+# clones_paths = ["data/2-clones-simple.tsv","data/2-clones-500.tsv", "data/2-clones-1000.tsv","data/2-clones-5000.tsv"]
+ctdna_paths = ["data/ctdna.tsv"]
+clones_paths = ["data/3-clones-50.tsv"]
+times = main(ctdna_paths, clones_paths)

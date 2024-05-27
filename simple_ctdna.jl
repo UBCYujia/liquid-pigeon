@@ -34,8 +34,8 @@ scale = 1.0 #for simplicity for now
 data_dict = Dict(
     "n" => n,
     "num_clones" => num_clones,
-    "clone_cn_profiles" => transpose(Matrix(clones_data[:, 2:end])),  # Transpose to fit matrix[n, num_clones]
-    "ctdna" => Vector(ctdna_data[:,1]),  # This assumes you've added a 'ctdna' column to your DataFrame
+    "clone_cn_profiles" => transpose(Matrix(clones_data[:, 2:end])), 
+    "ctdna" => Vector(ctdna_data[:,1]),
     "scale" => 1.0
 )
 json_data = JSON.json(data_dict)

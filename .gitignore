@@ -1,1 +1,5 @@
 results/*
+plots/*
+scratch.jl
+plot_scratch.jl
+runtime_comparison.jl
