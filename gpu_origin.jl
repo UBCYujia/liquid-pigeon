@@ -25,11 +25,11 @@ end
 
 
 struct CtDNALogPotential
-    ctdna::CuArray{Float32}
-    clone_cn_profiles::CuMatrix{Float32}#32
+    ctdna::CuArray{Float64}
+    clone_cn_profiles::CuMatrix{Float64}
     num_clones::Int
     n::Int
-    scale::Float32
+    scale::Float64
 end
 
 
@@ -38,8 +38,7 @@ function (log_potential::CtDNALogPotential)(params)
     if any(rho .< 0 .|| rho .> 1) || abs(sum(rho) - 1) > 1e-5
         return -Inf
     end
-    rho = CuArray(params)   # transfer from cpu to cuda here is tiny, not enough to slow down
-    #convert cuarray here
+
     total_sum = log_potential.clone_cn_profiles * rho
     mean_total_sum = mean(CUDA.reduce(+, total_sum) / length(total_sum))
 
@@ -56,7 +55,7 @@ end
 
 function Pigeons.initialization(log_potential::CtDNALogPotential, rng::AbstractRNG, ::Int)
     alpha = 1.0  
-    rho = rand(rng, Dirichlet(log_potential.num_clones, alpha))   # change this to cuda rand
+    rho = rand(rng, Dirichlet(log_potential.num_clones, alpha))
     @assert abs(sum(rho) - 1) < 1e-5 "density not 1!"
 
     return rho
@@ -65,7 +64,7 @@ end
 
 function Pigeons.sample_iid!(log_potential::CtDNALogPotential, replica, shared)
     rng = replica.rng
-    new_state = rand(rng, Dirichlet(log_potential.num_clones, 1.0)) # change this to cuda rand
+    new_state = rand(rng, Dirichlet(log_potential.num_clones, 1.0))
 
     @assert abs(sum(new_state) - 1) < 1e-5 "density not 1!"
 
@@ -84,6 +83,32 @@ function default_reference(log_potential::CtDNALogPotential)
     return CtDNALogPotential(CuArray(neutral_ctdna), log_potential.clone_cn_profiles, log_potential.num_clones, log_potential.n, log_potential.scale)
 end
 
+# function main()
+#     ctdna_path = "data/ctdna-500.tsv"
+#     clones_path = "data/2-clones-500.tsv"
+#     ctdna_data, clones_data = load_data(ctdna_path, clones_path)
+
+#     n = size(clones_data, 1)
+#     num_clones = size(clones_data, 2) - 1
+#     clone_cn_profiles = CuMatrix(Matrix(clones_data[:, 2:end]))
+#     ctdna = CuArray(Vector{Float64}(ctdna_data[:, 1]))
+#     scale = 1.0
+
+#     log_potential = CtDNALogPotential(ctdna, clone_cn_profiles, num_clones, n, scale)
+#     reference_potential = default_reference(log_potential)
+
+#     pt = pigeons(
+#         target = log_potential,
+#         reference = reference_potential,
+#         record = [traces; record_default()]
+#     )
+#     # report(pt)
+
+#     println("Model run complete.")
+# end
+
+# @time main()
+
 function main(ctdna_paths, clones_paths)
     times = Float64[]
 
@@ -100,7 +125,7 @@ function main(ctdna_paths, clones_paths)
         log_potential = CtDNALogPotential(ctdna, clone_cn_profiles, num_clones, n, scale)
         reference_potential = default_reference(log_potential)
 
-        time_taken = CUDA.@profile begin
+        time_taken = @elapsed begin
             pt = pigeons(
                 target = log_potential,
                 reference = reference_potential,
@@ -109,9 +134,9 @@ function main(ctdna_paths, clones_paths)
             )
             #report(pt)
         end
-        println(time_taken)
-        #push!(times, time_taken)
-        #println("run complete for $ctdna_path. time taken: $time_taken seconds.")
+
+        push!(times, time_taken)
+        println("run complete for $ctdna_path. time taken: $time_taken seconds.")
     end
 
     return times

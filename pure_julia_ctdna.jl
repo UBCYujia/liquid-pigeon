@@ -15,6 +15,7 @@ struct CtDNALogPotential
 end
 
 function (log_potential::CtDNALogPotential)(params)
+    start_time = time_ns()
     rho = params
     if any(x -> x < 0 || x > 1, rho) || abs(sum(rho)  - 1) > 1e-5
     # if any(x -> x < 0 || x > 1, rho) || sum(rho) != 1
@@ -42,7 +43,11 @@ function (log_potential::CtDNALogPotential)(params)
         dist_i = LocationScale(mu[i], log_potential.scale, dist)
         log_likelihood += logpdf(dist_i, log_potential.ctdna[i])
     end
-    
+
+    end_time = time_ns()
+    elapsed_time = (end_time - start_time) / 1e9
+    println("Execution of log_potential took $elapsed_time seconds")
+
     return log_likelihood
 end
 
@@ -73,8 +78,9 @@ function load_data(ctdna_path, clones_path)
 end
 
 function default_reference(log_potential::CtDNALogPotential)
-    neutral_ctdna = ones(log_potential.n)
-    return CtDNALogPotential(neutral_ctdna, log_potential.clone_cn_profiles, log_potential.num_clones, log_potential.n, log_potential.scale)
+    neutral_ctdna = randn(log_potential.n)
+    neutral_cn_profiles = abs.(randn(size(log_potential.clone_cn_profiles)))
+    return CtDNALogPotential(neutral_ctdna, neutral_cn_profiles, log_potential.num_clones, log_potential.n, log_potential.scale)
 end
 
 # function main()
@@ -120,9 +126,10 @@ function main(ctdna_paths, clones_paths)
             pt = pigeons(
                 target = log_potential,
                 reference = reference_potential,
-                record = [traces; record_default()]
+                record = [traces; record_default()],
+                n_rounds = 4
             )
-        report(pt)    
+         report(pt)    
         end
 
         println("run complete for $ctdna_path. time taken: $time_taken seconds.")
@@ -132,5 +139,5 @@ end
 # ctdna_paths = ["data/ctdna.tsv","data/ctdna-500.tsv", "data/ctdna-1000.tsv","data/ctdna-5000.tsv"]
 # clones_paths = ["data/2-clones-simple.tsv","data/2-clones-500.tsv", "data/2-clones-1000.tsv","data/2-clones-5000.tsv"]
 ctdna_paths = ["data/ctdna.tsv"]
-clones_paths = ["data/3-clones-50.tsv"]
+clones_paths = ["data/2-clones-simple.tsv"]
 times = main(ctdna_paths, clones_paths)
